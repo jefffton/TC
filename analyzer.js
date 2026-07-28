@@ -5,6 +5,9 @@ function analyzeAllTestCases(testCases) {
   const results = testCases.map((tc, index) => analyzeTestCase(tc, index + 1));
   results.forEach(r => {
     r.improved = generateImprovedTC(r._originalTC, r);
+    r.originalSteps = r._originalTC.steps || r._originalTC.testSteps || [];
+    r.originalExpected = r._originalTC.expectedResult || r._originalTC.expected || "";
+    r.originalPreConditions = r._originalTC.preConditions || r._originalTC.prerequisites || "";
     delete r._originalTC;
   });
   const overallScore = results.reduce((sum, r) => sum + r.overallRating, 0) / results.length;

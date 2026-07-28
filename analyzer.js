@@ -17,9 +17,9 @@ function analyzeAllTestCases(testCases) {
       overallScore: Math.round(overallScore * 10) / 10,
       maxScore: 10,
       grade: getGrade(overallScore),
-      passCount: results.filter(r => r.overallRating >= 7).length,
-      needsImprovementCount: results.filter(r => r.overallRating >= 4 && r.overallRating < 7).length,
-      poorCount: results.filter(r => r.overallRating < 4).length,
+      passCount: results.filter(r => r.overallRating >= 8).length,
+      needsImprovementCount: results.filter(r => r.overallRating >= 5 && r.overallRating < 8).length,
+      poorCount: results.filter(r => r.overallRating < 5).length,
     },
     results,
   };
@@ -349,6 +349,111 @@ function rateTitleStepsRelevance(tc) {
     feedback.push('Title and steps appear disconnected');
   }
 
+  return { score: Math.min(score, 10), feedback };
+}
+
+// ==================== REPRODUCIBILITY ====================
+// Can a new QAE execute this test case without asking questions?
+function rateReproducibility(tc) {
+  let score = 0;
+  const feedback = [];
+
+  let steps = tc.steps || tc.testSteps || [];
+  if (typeof steps === 'string') steps = steps.split(/[\n\r]+/).map(s => s.replace(/^\d+[\.\)]\s*/, '').trim()).filter(s => s);
+  const stepsText = Array.isArray(steps) ? steps.join(' ') : '';
+  const expected = (tc.expectedResult || tc.expected || '').toString();
+  const allText = ((tc.title || '') + ' ' + stepsText + ' ' + expected).toLowerCase();
+
+  if (!steps.length) { feedback.push('No steps — cannot assess reproducibility'); return { score: 0, feedback }; }
+
+  // 1. Does it specify WHERE to start? (URL, page, screen)
+  if (/(?:navigate to|open|go to|visit|launch|url|http|page|screen|app)/i.test(stepsText)) {
+    score += 2;
+  } else {
+    feedback.push('Missing starting point — where does tester begin?');
+  }
+
+  // 2. Are inputs specific (not "enter valid data")?
+  const genericInputs = /(?:enter valid|use valid|valid credentials|valid data|some data|test data|appropriate data|correct value)/i;
+  if (!genericInputs.test(allText)) {
+    score += 2;
+  } else {
+    feedback.push('Contains generic inputs ("valid data") — use exact values');
+  }
+
+  // 3. Are UI elements named specifically?
+  const uiElements = /(?:button|field|dropdown|checkbox|link|tab|menu|modal|icon|input|textarea|label|toggle|radio|slider|banner|header|footer|sidebar|panel|dialog|toast|popup|page)/i;
+  const quotedElements = /['"][^'"]{2,}['"]/;
+  if (uiElements.test(stepsText) || quotedElements.test(stepsText)) {
+    score += 2;
+  } else {
+    feedback.push('Steps lack specific UI element names — a new tester won\'t know where to click');
+  }
+
+  // 4. Are there assumptions about prior knowledge?
+  const assumptions = /(?:as usual|as before|like last time|you know|obviously|of course|the usual|same as|as described|previously)/i;
+  if (!assumptions.test(allText)) {
+    score += 2;
+  } else {
+    feedback.push('Contains assumptions about tester knowledge — make steps self-contained');
+  }
+
+  // 5. Could someone unfamiliar follow the sequence?
+  if (steps.length >= 3 && steps.every(s => (typeof s === 'string' ? s : '').length >= 8)) {
+    score += 2;
+  } else {
+    feedback.push('Some steps too brief for a new tester to follow');
+  }
+
+  if (feedback.length === 0) feedback.push('✓ A new tester can execute this without help');
+  return { score: Math.min(score, 10), feedback };
+}
+
+// ==================== AUTOMATION READINESS ====================
+// Is this test case written in a way that could be automated?
+function rateAutomationReadiness(tc) {
+  let score = 0;
+  const feedback = [];
+
+  let steps = tc.steps || tc.testSteps || [];
+  if (typeof steps === 'string') steps = steps.split(/[\n\r]+/).map(s => s.replace(/^\d+[\.\)]\s*/, '').trim()).filter(s => s);
+  const expected = (tc.expectedResult || tc.expected || '').toString();
+  const allText = (steps.join(' ') + ' ' + expected).toLowerCase();
+
+  if (!steps.length && !expected) { feedback.push('No steps/expected — cannot assess'); return { score: 0, feedback }; }
+
+  // 1. Clear, deterministic expected result (not subjective)
+  const subjective = /(?:looks? good|looks? correct|looks? fine|feels right|seems ok|acceptable|nice|proper|reasonable|user-friendly|intuitive|appealing|beautiful|clean)/i;
+  if (!subjective.test(expected.toLowerCase())) {
+    score += 3;
+  } else {
+    feedback.push('Subjective expected result ("looks good") — cannot be automated');
+  }
+
+  // 2. Verifiable assertions (contains, equals, displays, count, value)
+  if (/(?:displays?|shows?|equals?|contains?|count|value|text|message|status|code|redirect|visible|enabled|disabled|checked|selected|present|absent|empty|not empty|\d+)/i.test(expected)) {
+    score += 3;
+  } else {
+    feedback.push('Expected result lacks verifiable assertions (displays X, contains Y, count = N)');
+  }
+
+  // 3. Steps use automatable actions (not "visually inspect" or "feel")
+  const nonAutomatable = /(?:visually inspect|look and feel|eye test|manually check|visual check|aesthetic|appearance|look at|seems|feels)/i;
+  if (!nonAutomatable.test(allText)) {
+    score += 2;
+  } else {
+    feedback.push('Contains non-automatable actions (visual inspection, look and feel)');
+  }
+
+  // 4. No timing ambiguity ("wait a bit", "after some time")
+  const vagueTime = /(?:wait a bit|after some time|wait a while|shortly|soon|eventually|when ready|in a moment)/i;
+  if (!vagueTime.test(allText)) {
+    score += 2;
+  } else {
+    feedback.push('Vague timing ("wait a bit") — use explicit waits or conditions');
+  }
+
+  if (feedback.length === 0) feedback.push('✓ Automatable — clear inputs, deterministic outputs');
   return { score: Math.min(score, 10), feedback };
 }
 

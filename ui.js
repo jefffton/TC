@@ -89,9 +89,9 @@ function renderResults(data) {
     <div class="metric"><div class="val">${s.totalTestCases}</div><div class="lbl">Total</div></div>
     <div class="metric"><div class="val" style="color:${scoreColor(s.overallScore)}">${s.overallScore}</div><div class="lbl">Avg Score</div></div>
     <div class="metric"><div class="val">${s.grade}</div><div class="lbl">Grade</div></div>
-    <div class="metric"><div class="val" style="color:var(--success)">${s.passCount}</div><div class="lbl">Good</div></div>
-    <div class="metric"><div class="val" style="color:var(--warning)">${s.needsImprovementCount}</div><div class="lbl">Needs Work</div></div>
-    <div class="metric"><div class="val" style="color:var(--danger)">${s.poorCount}</div><div class="lbl">Poor</div></div>`;
+    <div class="metric"><div class="val" style="color:var(--success)">${s.passCount}</div><div class="lbl">Meets Standard</div></div>
+    <div class="metric"><div class="val" style="color:var(--warning)">${s.needsImprovementCount}</div><div class="lbl">Needs Improvement</div></div>
+    <div class="metric"><div class="val" style="color:var(--danger)">${s.poorCount}</div><div class="lbl">Poor Quality</div></div>`;
 
   applyFilters();
 }

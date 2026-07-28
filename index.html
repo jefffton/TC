@@ -5,171 +5,94 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Test Case Analyzer</title>
   <style>
-    :root {
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
-      --success: #16a34a;
-      --warning: #d97706;
-      --danger: #dc2626;
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --text: #1e293b;
-      --muted: #64748b;
-      --border: #e2e8f0;
-    }
+    :root { --primary: #0972d3; --primary-dark: #033160; --primary-light: #e9f3ff; --success: #037f0c; --warning: #8d6605; --danger: #d91515; --bg: #f2f3f3; --card: #ffffff; --text: #000716; --muted: #5f6b7a; --border: #d1d5db; --header-bg: #232f3e; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-    header { text-align: center; margin-bottom: 2rem; padding: 2rem; background: linear-gradient(135deg, var(--primary), #7c3aed); color: white; border-radius: 16px; }
-    header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
-    header p { opacity: 0.9; font-size: 1.1rem; }
-    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border); flex-wrap: wrap; }
-    .tab { padding: 0.75rem 1.5rem; cursor: pointer; border: none; background: none; font-size: 1rem; color: var(--muted); border-bottom: 3px solid transparent; transition: all 0.2s; }
-    .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
-    .tab:hover { color: var(--primary); }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    .card { background: var(--card); border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; border: 1px solid var(--border); }
-    .card h3 { margin-bottom: 1rem; }
-    .form-group { margin-bottom: 1rem; }
-    .form-group label { display: block; font-weight: 500; margin-bottom: 0.3rem; font-size: 0.9rem; }
-    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; transition: border-color 0.2s; }
-    .form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-    .form-group textarea { min-height: 80px; resize: vertical; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
-    .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
-    .btn-secondary { background: var(--border); color: var(--text); }
-    .btn-secondary:hover { background: #cbd5e1; }
-    .btn-danger { background: var(--danger); color: white; }
-    .btn-danger:hover { background: #b91c1c; }
-    .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
-    .btn-group { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
-    .test-case-entry { border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; background: #f1f5f9; }
-    .test-case-entry .entry-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .test-case-entry .entry-header h4 { color: var(--primary); }
-    .remove-btn { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem; padding: 0.25rem; }
-    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-    .summary-item { text-align: center; padding: 1.25rem; border-radius: 10px; background: #f1f5f9; }
-    .summary-item .value { font-size: 2rem; font-weight: 700; }
-    .summary-item .label { font-size: 0.85rem; color: var(--muted); margin-top: 0.25rem; }
-    .score-circle { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem; color: white; flex-shrink: 0; }
-    .score-high { background: var(--success); }
-    .score-mid { background: var(--warning); }
-    .score-low { background: var(--danger); }
-    .result-card { border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; background: var(--card); }
-    .result-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-    .result-header .info { flex: 1; }
-    .result-header .info h4 { font-size: 1.1rem; }
-    .result-header .info .subtitle { color: var(--muted); font-size: 0.9rem; }
-    .grade-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem; margin-left: 0.5rem; }
-    .grade-a { background: #dcfce7; color: #166534; }
-    .grade-b { background: #dbeafe; color: #1e40af; }
-    .grade-c { background: #fef3c7; color: #92400e; }
-    .grade-d { background: #fed7aa; color: #9a3412; }
-    .grade-f { background: #fecaca; color: #991b1b; }
-    .criteria-list { margin-top: 1rem; }
-    .criteria-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
-    .criteria-item:last-child { border-bottom: none; }
-    .criteria-item .name { flex: 1; font-size: 0.9rem; }
-    .criteria-item .bar-container { width: 120px; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
-    .criteria-item .bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
-    .criteria-item .score-text { font-size: 0.85rem; font-weight: 600; width: 40px; text-align: right; }
-    .suggestions { margin-top: 1rem; padding: 0.75rem; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; }
-    .suggestions h5 { color: #9a3412; margin-bottom: 0.5rem; }
-    .suggestions ul { padding-left: 1.25rem; }
-    .suggestions li { font-size: 0.85rem; color: #78350f; margin-bottom: 0.25rem; }
-    .json-input { font-family: 'Courier New', monospace; min-height: 300px; font-size: 0.85rem; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+    .topbar { background: var(--header-bg); padding: 0.6rem 2rem; display: flex; align-items: center; gap: 1rem; }
+    .topbar h1 { color: #fff; font-size: 1rem; font-weight: 700; }
+    .container { max-width: 1280px; margin: 0 auto; padding: 1.25rem 2rem; }
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; }
+    .panel-header { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
+    .panel-body { padding: 1rem; }
+    .btn { padding: 0.4rem 0.85rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem; font-weight: 600; cursor: pointer; background: white; color: var(--text); transition: all 0.1s; }
+    .btn:hover { background: #f3f3f3; }
+    .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-group { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .upload-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.15s; }
+    .upload-zone:hover, .upload-zone.drag-over { border-color: var(--primary); background: var(--primary-light); }
+    .upload-zone p { color: var(--muted); font-size: 0.85rem; }
+    .upload-zone .icon { font-size: 1.5rem; margin-bottom: 0.4rem; }
+    .upload-zone .browse { color: var(--primary); font-weight: 600; text-decoration: underline; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.75rem; }
+    .metric { text-align: center; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: #fafafa; }
+    .metric .val { font-size: 1.5rem; font-weight: 700; }
+    .metric .lbl { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-top: 0.1rem; }
+    .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .toolbar select, .toolbar input { padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem; }
+    .toolbar select { min-width: 120px; }
+    .tc-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .tc-table th { text-align: left; padding: 0.5rem 0.6rem; background: #f9fafb; border-bottom: 2px solid var(--border); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--muted); }
+    .tc-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #f1f3f5; vertical-align: top; }
+    .tc-table tr { cursor: pointer; transition: background 0.1s; }
+    .tc-table tr:hover { background: #f7f9fb; }
+    .tc-table tr.expanded { background: var(--primary-light); }
+    .score-pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px; font-weight: 700; font-size: 0.75rem; color: white; }
+    .pill-high { background: var(--success); }
+    .pill-mid { background: var(--warning); }
+    .pill-low { background: var(--danger); }
+    .badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; margin-left: 0.3rem; }
+    .badge-ai { background: #f3e8ff; color: #6b21a8; }
+    .badge-grade { background: #f1f5f9; color: var(--muted); }
+    .detail-row { display: none; }
+    .detail-row.visible { display: table-row; }
+    .detail-row td { padding: 0.75rem 1rem; background: #fafbfc; }
+    .detail-content { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .detail-section h5 { font-size: 0.8rem; color: var(--primary-dark); margin-bottom: 0.3rem; }
+    .detail-bar { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; font-size: 0.8rem; }
+    .detail-bar .bar-bg { flex: 1; max-width: 80px; height: 5px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+    .detail-bar .bar-fill { height: 100%; border-radius: 3px; }
+    .detail-bar .score { font-weight: 600; width: 30px; text-align: right; }
+    .suggestion-list { font-size: 0.8rem; color: #6b4400; padding-left: 1rem; margin-top: 0.3rem; }
+    .suggestion-list li { margin-bottom: 0.15rem; }
+    .rewrite-box { margin-top: 0.5rem; padding: 0.5rem; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 4px; font-size: 0.78rem; }
+    .rewrite-box h6 { color: #3730a3; margin-bottom: 0.3rem; }
+    .rewrite-box ol { padding-left: 1rem; }
+    .rewrite-box li { margin-bottom: 0.2rem; }
+    .rewrite-box .reason { color: var(--muted); font-style: italic; font-size: 0.7rem; }
+    .pass-badge { color: var(--success); font-size: 0.8rem; }
     #results { display: none; }
-    .upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc; }
-    .upload-zone:hover, .upload-zone.drag-over { border-color: var(--primary); background: #eff6ff; }
-    .upload-zone .upload-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
-    .upload-zone .upload-hint { font-size: 0.85rem; color: var(--muted); }
-    .upload-link { color: var(--primary); cursor: pointer; font-weight: 600; text-decoration: underline; }
-    .file-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; font-size: 0.9rem; font-weight: 500; }
-    .preview-table-container { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
-    .preview-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    .preview-table th, .preview-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
-    .preview-table th { background: #f1f5f9; font-weight: 600; }
-    .preview-table tr:last-child td { border-bottom: none; }
-    .column-hints { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .hint-tag { padding: 0.3rem 0.7rem; background: #f1f5f9; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; color: var(--muted); }
-    #mapping-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.75rem; }
-    .mapping-item select { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; }
-    @media (max-width: 768px) { .form-row, .form-row-3 { grid-template-columns: 1fr; } .summary-grid { grid-template-columns: 1fr 1fr; } .container { padding: 1rem; } }
+    @media (max-width: 768px) { .container { padding: 1rem; } .metrics { grid-template-columns: 1fr 1fr 1fr; } .detail-content { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
+  <div class="topbar"><h1>Test Case Analyzer</h1></div>
   <div class="container">
-    <header>
-      <h1>🧪 Test Case Analyzer</h1>
-      <p>Analyze and rate your test cases against software testing best practices</p>
-    </header>
-
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('form')">📝 Form Input</button>
-      <button class="tab" onclick="switchTab('json')">{ } JSON Input</button>
-      <button class="tab" onclick="switchTab('file')">📁 File Upload</button>
-      <button class="tab" onclick="switchTab('sample')">📋 Sample Data</button>
-    </div>
-
-    <div id="tab-form" class="tab-content active">
-      <div id="test-case-forms"></div>
-      <div class="btn-group">
-        <button class="btn btn-secondary" onclick="addTestCaseForm()">+ Add Test Case</button>
-        <button class="btn btn-primary" onclick="analyzeFromForm()">🔍 Analyze Test Cases</button>
-        <button class="btn btn-danger btn-sm" onclick="clearForms()">Clear All</button>
-      </div>
-    </div>
-
-    <div id="tab-json" class="tab-content">
-      <div class="card">
-        <h3>Paste Test Cases as JSON</h3>
-        <div class="form-group">
-          <textarea id="json-input" class="json-input" placeholder='[{"testCaseId":"TC-001","title":"Verify login","description":"...","steps":["Step 1","Step 2"],"expectedResult":"...","status":"Pass"}]'></textarea>
-        </div>
-        <button class="btn btn-primary" onclick="analyzeFromJSON()">🔍 Analyze Test Cases</button>
-      </div>
-    </div>
-
-    <div id="tab-file" class="tab-content">
-      <div class="card">
-        <h3>Upload Test Cases (CSV / Excel)</h3>
-        <p style="color:var(--muted);margin-bottom:1rem;">Upload a .csv or .xlsx/.xls file. Columns will be auto-mapped to test case fields.</p>
+    <!-- Upload -->
+    <div class="panel" id="upload-panel">
+      <div class="panel-body">
         <div class="upload-zone" id="upload-zone">
-          <div class="upload-icon">📂</div>
-          <p><strong>Drag & drop</strong> your file here or <label for="file-input" class="upload-link">browse</label></p>
-          <p class="upload-hint">Supports: .csv, .xlsx, .xls</p>
+          <div class="icon">📄</div>
+          <p><strong>Drop your file here</strong> or <span class="browse">browse</span></p>
+          <p>.xlsx, .xls, .csv — auto-analyzes on upload</p>
           <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileSelect(event)">
         </div>
-        <div id="file-info" style="display:none;margin-top:1rem;"><div class="file-badge"><span id="file-name"></span><button class="remove-btn" onclick="clearFile()">&times;</button></div></div>
-        <div id="column-mapping" style="display:none;margin-top:1.5rem;"><h4 style="margin-bottom:0.75rem;">Column Mapping</h4><p style="color:var(--muted);font-size:0.85rem;margin-bottom:1rem;">Map your file columns to test case fields.</p><div id="mapping-fields"></div></div>
-        <div id="file-preview" style="display:none;margin-top:1.5rem;"><h4>Preview <span id="preview-count" style="color:var(--muted);font-size:0.85rem;"></span></h4><div class="preview-table-container"><table class="preview-table" id="preview-table"></table></div></div>
-        <div id="file-actions" style="display:none;margin-top:1rem;" class="btn-group"><button class="btn btn-primary" onclick="analyzeFromFile()">🔍 Analyze Test Cases</button><button class="btn btn-secondary" onclick="clearFile()">Clear</button></div>
-      </div>
-      <div class="card">
-        <h4>📋 Expected Column Names</h4>
-        <div class="column-hints" style="margin-top:0.5rem;">
-          <span class="hint-tag">Test Case ID</span><span class="hint-tag">Title</span><span class="hint-tag">Description</span><span class="hint-tag">Module</span><span class="hint-tag">Pre-Conditions</span><span class="hint-tag">Post-Conditions</span><span class="hint-tag">Test Steps</span><span class="hint-tag">Test Data</span><span class="hint-tag">Expected Result</span><span class="hint-tag">Actual Result</span><span class="hint-tag">Status</span><span class="hint-tag">Priority</span>
-        </div>
-        <div style="margin-top:1rem;"><button class="btn btn-secondary btn-sm" onclick="downloadTemplate()">⬇️ Download Template</button></div>
       </div>
     </div>
 
-    <div id="tab-sample" class="tab-content">
-      <div class="card">
-        <h3>Try with Sample Test Cases</h3>
-        <p style="color:var(--muted);margin-bottom:1rem;">Load sample test cases of varying quality to see the analyzer in action.</p>
-        <button class="btn btn-primary" onclick="loadAndAnalyzeSamples()">🚀 Load & Analyze Sample Data</button>
-      </div>
-    </div>
-
+    <!-- Results -->
     <div id="results">
-      <h2 style="margin-bottom:1.5rem;">📊 Analysis Results</h2>
-      <div class="card"><h3>Summary</h3><div id="summary-grid" class="summary-grid"></div></div>
-      <div id="result-cards"></div>
+      <div class="panel">
+        <div class="panel-header"><span>Summary</span><div class="btn-group"><button class="btn" onclick="exportToCSV()">Export CSV</button></div></div>
+        <div class="panel-body"><div id="metrics" class="metrics"></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span>Test Cases</span><span id="result-count" style="font-weight:normal;color:var(--muted)"></span></div>
+        <div class="panel-body">
+          <div class="toolbar" id="toolbar"></div>
+          <table class="tc-table"><thead><tr><th>ID</th><th>Title</th><th>Score</th><th>Grade</th><th>Issues</th></tr></thead><tbody id="tc-body"></tbody></table>
+        </div>
+      </div>
     </div>
   </div>
 

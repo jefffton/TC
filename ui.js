@@ -1,175 +1,193 @@
-// ==================== UI LOGIC ====================
-let formCount = 0;
-let uploadedData = null;
-let uploadedHeaders = [];
-let columnMapping = {};
+// ==================== UI: Auto-analyze, table, expand, filter ====================
+let uploadedData = null, uploadedHeaders = [], columnMapping = {};
 
-const FIELD_DEFINITIONS = [
-  { key: 'testCaseId', label: 'Test Case ID', aliases: ['test case id','tc id','id','test_case_id','tcid','case id'] },
-  { key: 'title', label: 'Title', aliases: ['title','name','test name','test title','tc name'] },
-  { key: 'description', label: 'Description', aliases: ['description','desc','objective','test description'] },
-  { key: 'module', label: 'Module', aliases: ['module','feature','component','area'] },
-  { key: 'preConditions', label: 'Pre-Conditions', aliases: ['pre-conditions','preconditions','pre conditions','prerequisites'] },
-  { key: 'postConditions', label: 'Post-Conditions', aliases: ['post-conditions','postconditions','post conditions'] },
-  { key: 'steps', label: 'Test Steps', aliases: ['steps','test steps','test_steps','actions','procedure'] },
-  { key: 'testData', label: 'Test Data', aliases: ['test data','test_data','input data','input','data'] },
-  { key: 'expectedResult', label: 'Expected Result', aliases: ['expected result','expected','expected_result','expected outcome'] },
-  { key: 'actualResult', label: 'Actual Result', aliases: ['actual result','actual','actual_result','actual outcome'] },
-  { key: 'status', label: 'Status', aliases: ['status','result','pass/fail','test status'] },
-  { key: 'priority', label: 'Priority', aliases: ['priority','severity','importance'] },
+const FIELDS = [
+  { key: 'testCaseId', aliases: ['test case id','tc id','id','test_case_id','tcid','case id','c_id'] },
+  { key: 'title', aliases: ['title','name','test name','test title','summary','case title'] },
+  { key: 'description', aliases: ['description','desc','objective','test description','purpose'] },
+  { key: 'preConditions', aliases: ['pre-conditions','preconditions','prerequisites','setup','pre_conditions'] },
+  { key: 'testData', aliases: ['test data','test_data','input data','input','data','test accounts'] },
+  { key: 'steps', aliases: ['steps','test steps','test_steps','actions','procedure','step_content'] },
+  { key: 'expectedResult', aliases: ['expected result','expected','expected_result','expected outcome'] },
+  { key: 'status', aliases: ['status','result','pass/fail','test status'] },
 ];
 
-// Tab switching
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  event.target.classList.add('active');
-  document.getElementById(`tab-${tab}`).classList.add('active');
-}
-
-// Form management
-function addTestCaseForm() {
-  formCount++;
-  const container = document.getElementById('test-case-forms');
-  const entry = document.createElement('div');
-  entry.className = 'test-case-entry';
-  entry.id = `tc-form-${formCount}`;
-  entry.innerHTML = `
-    <div class="entry-header"><h4>Test Case #${formCount}</h4><button class="remove-btn" onclick="removeForm(${formCount})">&times;</button></div>
-    <div class="form-row"><div class="form-group"><label>Test Case ID</label><input type="text" class="tc-id" placeholder="e.g., TC-001"></div><div class="form-group"><label>Module/Feature</label><input type="text" class="tc-module" placeholder="e.g., Login"></div></div>
-    <div class="form-group"><label>Title</label><input type="text" class="tc-title" placeholder="e.g., Verify login with valid credentials"></div>
-    <div class="form-group"><label>Objective / Description</label><textarea class="tc-objective" placeholder="What is this test case testing?"></textarea></div>
-    <div class="form-row"><div class="form-group"><label>Pre-Conditions</label><textarea class="tc-pre" placeholder="e.g., User account exists, App is running"></textarea></div><div class="form-group"><label>Post-Conditions</label><textarea class="tc-post" placeholder="e.g., User is logged in"></textarea></div></div>
-    <div class="form-group"><label>Test Steps (one per line)</label><textarea class="tc-steps" placeholder="1. Navigate to login page&#10;2. Enter username&#10;3. Enter password&#10;4. Click Login"></textarea></div>
-    <div class="form-group"><label>Test Data</label><textarea class="tc-data" placeholder="e.g., username: testuser@email.com, password: Test@123"></textarea></div>
-    <div class="form-group"><label>Expected Result</label><textarea class="tc-expected" placeholder="e.g., User is redirected to dashboard with welcome message"></textarea></div>
-    <div class="form-row-3"><div class="form-group"><label>Actual Result</label><input type="text" class="tc-actual" placeholder="What actually happened"></div><div class="form-group"><label>Status</label><select class="tc-status"><option value="">Select...</option><option value="Pass">Pass</option><option value="Fail">Fail</option><option value="Blocked">Blocked</option><option value="Not Executed">Not Executed</option></select></div><div class="form-group"><label>Priority</label><select class="tc-priority"><option value="">Select...</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></div></div>`;
-  container.appendChild(entry);
-}
-
-function removeForm(id) { const el = document.getElementById(`tc-form-${id}`); if (el) el.remove(); }
-function clearForms() { document.getElementById('test-case-forms').innerHTML = ''; formCount = 0; document.getElementById('results').style.display = 'none'; }
-
-function analyzeFromForm() {
-  const entries = document.querySelectorAll('.test-case-entry');
-  if (entries.length === 0) { alert('Please add at least one test case'); return; }
-  const testCases = [];
-  entries.forEach(entry => {
-    const stepsText = entry.querySelector('.tc-steps').value;
-    const steps = stepsText.split('\n').map(s => s.replace(/^\d+[\.\)]\s*/, '').trim()).filter(s => s);
-    const dataText = entry.querySelector('.tc-data').value;
-    let testData = dataText;
-    if (dataText.includes(':')) { const obj = {}; dataText.split(/[,\n]/).forEach(pair => { const [key,...val] = pair.split(':'); if (key && val.length) obj[key.trim()] = val.join(':').trim(); }); if (Object.keys(obj).length > 0) testData = obj; }
-    testCases.push({ testCaseId: entry.querySelector('.tc-id').value, title: entry.querySelector('.tc-title').value, description: entry.querySelector('.tc-objective').value, objective: entry.querySelector('.tc-objective').value, module: entry.querySelector('.tc-module').value, preConditions: entry.querySelector('.tc-pre').value, postConditions: entry.querySelector('.tc-post').value, steps: steps.length > 0 ? steps : undefined, testData: testData || undefined, expectedResult: entry.querySelector('.tc-expected').value, actualResult: entry.querySelector('.tc-actual').value, status: entry.querySelector('.tc-status').value, priority: entry.querySelector('.tc-priority').value });
-  });
-  renderResults(analyzeAllTestCases(testCases));
-}
-
-function analyzeFromJSON() {
-  const input = document.getElementById('json-input').value.trim();
-  if (!input) { alert('Please paste JSON test cases'); return; }
-  try { const testCases = JSON.parse(input); if (!Array.isArray(testCases)) { alert('JSON must be an array'); return; } renderResults(analyzeAllTestCases(testCases)); }
-  catch (e) { alert('Invalid JSON: ' + e.message); }
-}
-
-function loadAndAnalyzeSamples() {
-  const sampleData = [
-    { testCaseId:"TC-001", title:"Verify login with valid credentials", description:"Test that a registered user can successfully log in with correct username and password", objective:"Verify that the login functionality accepts valid credentials and grants access", module:"Authentication", preConditions:"User account exists in the system, Application is accessible", postConditions:"User is logged in and session is created", steps:["Navigate to the login page","Enter valid username 'testuser@email.com'","Enter valid password 'Test@123'","Click the Login button","Verify redirect to dashboard"], testData:{username:"testuser@email.com",password:"Test@123"}, expectedResult:"User is redirected to dashboard page with welcome message 'Hello, Test User' displayed", actualResult:"User redirected to dashboard with welcome message displayed", status:"Pass", priority:"High" },
-    { testCaseId:"TC-002", title:"Login fails with wrong password", description:"Verify error message when invalid password is entered", objective:"Check that login rejects invalid password and shows appropriate error", module:"Authentication", preConditions:"User account exists", postConditions:"User remains on login page", steps:["Navigate to login page","Enter valid username","Enter incorrect password","Click Login"], testData:{username:"testuser@email.com",password:"wrongpass"}, expectedResult:"Error message 'Invalid credentials' is displayed and user stays on login page", actualResult:"Error message displayed correctly", status:"Pass", priority:"High" },
-    { testCaseId:"TC-003", title:"Empty fields validation", description:"Check validation", steps:["Leave fields empty","Click login"], expectedResult:"Shows error", status:"Pass" },
-    { title:"Search works", steps:"type something and search", expectedResult:"results show up properly" },
-    { testCaseId:"TC-005", title:"Verify password reset email delivery", description:"Validate that clicking Forgot Password sends a reset email to the registered address", objective:"Verify the password reset flow sends email correctly with valid reset link", module:"Authentication", feature:"Password Reset", preConditions:"User account exists with verified email, SMTP service is running, User is on login page", postConditions:"Reset email is in users inbox, Reset link is valid for 24 hours", steps:["Navigate to the login page","Click Forgot Password link","Enter registered email address","Click Send Reset Link button","Check email inbox for reset email","Verify email contains valid reset link","Verify link expires after 24 hours"], testData:{email:"testuser@email.com",expectedSender:"noreply@app.com",linkExpiry:"24 hours"}, expectedResult:"Password reset email is received within 2 minutes containing a valid reset link that expires in 24 hours. Success message displayed on screen.", actualResult:"Email received in 45 seconds with valid reset link. Expiry confirmed at 24 hours. Success message displayed.", status:"Pass", priority:"High" }
-  ];
-  renderResults(analyzeAllTestCases(sampleData));
-}
-
-// ==================== FILE UPLOAD ====================
+// ==================== UPLOAD ====================
 document.addEventListener('DOMContentLoaded', () => {
   const zone = document.getElementById('upload-zone');
-  if (!zone) return;
   zone.addEventListener('click', () => document.getElementById('file-input').click());
-  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-  zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
-  addTestCaseForm();
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
 });
 
-function handleFileSelect(event) { if (event.target.files[0]) processFile(event.target.files[0]); }
+function handleFileSelect(e) { if (e.target.files[0]) processFile(e.target.files[0]); }
 
 function processFile(file) {
   const ext = '.' + file.name.split('.').pop().toLowerCase();
-  if (!['.csv','.xlsx','.xls'].includes(ext)) { alert('Please upload a .csv, .xlsx, or .xls file.'); return; }
-  document.getElementById('file-info').style.display = 'block';
-  document.getElementById('file-name').textContent = `${file.name} (${formatFileSize(file.size)})`;
+  if (!['.csv','.xlsx','.xls'].includes(ext)) { alert('Upload .csv, .xlsx, or .xls'); return; }
   const reader = new FileReader();
-  if (ext === '.csv') { reader.onload = (e) => parseCSV(e.target.result); reader.readAsText(file); }
-  else { reader.onload = (e) => parseExcel(new Uint8Array(e.target.result)); reader.readAsArrayBuffer(file); }
+  if (ext === '.csv') { reader.onload = e => { parseCSV(e.target.result); autoAnalyze(); }; reader.readAsText(file); }
+  else { reader.onload = e => { parseExcel(new Uint8Array(e.target.result)); autoAnalyze(); }; reader.readAsArrayBuffer(file); }
 }
 
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) { alert('CSV needs at least a header and one data row.'); return; }
-  const parseRow = (row) => { const result = []; let current = '', inQ = false; for (let i = 0; i < row.length; i++) { const c = row[i]; if (c === '"') { if (inQ && row[i+1] === '"') { current += '"'; i++; } else inQ = !inQ; } else if (c === ',' && !inQ) { result.push(current.trim()); current = ''; } else current += c; } result.push(current.trim()); return result; };
+  if (lines.length < 2) { alert('File needs header + data.'); return; }
+  const parseRow = row => { const r = []; let c = '', q = false; for (let i = 0; i < row.length; i++) { const ch = row[i]; if (ch === '"') { if (q && row[i+1] === '"') { c += '"'; i++; } else q = !q; } else if (ch === ',' && !q) { r.push(c.trim()); c = ''; } else c += ch; } r.push(c.trim()); return r; };
   uploadedHeaders = parseRow(lines[0]);
-  uploadedData = lines.slice(1).map(line => { const values = parseRow(line); const row = {}; uploadedHeaders.forEach((h,i) => { row[h] = values[i] || ''; }); return row; }).filter(row => Object.values(row).some(v => v.trim()));
-  showMappingAndPreview();
+  uploadedData = lines.slice(1).map(l => { const v = parseRow(l); const row = {}; uploadedHeaders.forEach((h,i) => row[h] = v[i] || ''); return row; }).filter(r => Object.values(r).some(v => v.trim()));
 }
 
 function parseExcel(data) {
-  try { const wb = XLSX.read(data, {type:'array'}); const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''}); if (!json.length) { alert('Excel file is empty.'); return; } uploadedHeaders = Object.keys(json[0]); uploadedData = json; showMappingAndPreview(); }
-  catch (e) { alert('Error parsing Excel: ' + e.message); }
+  const wb = XLSX.read(data, {type:'array'});
+  const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+  if (!json.length) { alert('File is empty.'); return; }
+  uploadedHeaders = Object.keys(json[0]);
+  uploadedData = json;
 }
 
-function showMappingAndPreview() {
+function autoAnalyze() {
+  if (!uploadedData || !uploadedData.length) return;
+  // Auto-map columns
   columnMapping = {};
-  FIELD_DEFINITIONS.forEach(field => { const match = uploadedHeaders.find(h => field.aliases.some(a => h.toLowerCase().trim() === a) || h.toLowerCase().replace(/[_\-\s]/g,'').includes(field.key.toLowerCase())); if (match) columnMapping[field.key] = match; });
-  document.getElementById('mapping-fields').innerHTML = FIELD_DEFINITIONS.map(f => `<div class="mapping-item form-group"><label>${f.label}</label><select onchange="columnMapping['${f.key}']=this.value"><option value="">-- Not mapped --</option>${uploadedHeaders.map(h => `<option value="${h}" ${columnMapping[f.key]===h?'selected':''}>${h}</option>`).join('')}</select></div>`).join('');
-  document.getElementById('column-mapping').style.display = 'block';
-  const rows = uploadedData.slice(0,5);
-  document.getElementById('preview-count').textContent = `(${uploadedData.length} rows, showing ${rows.length})`;
-  let html = '<thead><tr>' + uploadedHeaders.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
-  rows.forEach(row => { html += '<tr>' + uploadedHeaders.map(h => `<td title="${row[h]||''}">${(row[h]||'').toString().substring(0,50)}</td>`).join('') + '</tr>'; });
-  document.getElementById('preview-table').innerHTML = html + '</tbody>';
-  document.getElementById('file-preview').style.display = 'block';
-  document.getElementById('file-actions').style.display = 'flex';
-}
+  FIELDS.forEach(f => { const m = uploadedHeaders.find(h => f.aliases.some(a => h.toLowerCase().trim() === a) || h.toLowerCase().replace(/[_\-\s]/g,'').includes(f.key.toLowerCase())); if (m) columnMapping[f.key] = m; });
 
-function analyzeFromFile() {
-  if (!uploadedData || !uploadedData.length) { alert('No data loaded.'); return; }
-  const testCases = uploadedData.map(row => { const tc = {}; FIELD_DEFINITIONS.forEach(f => { const col = columnMapping[f.key]; if (col && row[col]) { let v = row[col].toString().trim(); if (f.key === 'steps' && v) { const sl = v.split(/[\n\r]+|(?:\d+[\.\)])\s*/).map(s=>s.trim()).filter(s=>s); tc[f.key] = sl.length > 1 ? sl : v; } else if (f.key === 'testData' && v.includes(':')) { const obj = {}; v.split(/[,;\n]/).forEach(p => { const [k,...val] = p.split(':'); if (k && val.length) obj[k.trim()] = val.join(':').trim(); }); tc[f.key] = Object.keys(obj).length ? obj : v; } else tc[f.key] = v; } }); return tc; });
-  const valid = testCases.filter(tc => Object.values(tc).some(v => v && v.toString().trim()));
-  if (!valid.length) { alert('No valid test cases found. Check column mapping.'); return; }
+  // Build test cases
+  const raw = uploadedData.map(row => {
+    const tc = {};
+    FIELDS.forEach(f => { const col = columnMapping[f.key]; if (col && row[col]) { let v = row[col].toString().trim(); if (f.key === 'steps' && v) { tc[f.key] = v.split(/[\n\r]+/).map(s => s.replace(/^\d+[\.\)]\s*/, '').trim()).filter(s => s); } else if (f.key === 'testData' && v.includes(':')) { const o = {}; v.split(/[,;\n]/).forEach(p => { const [k,...val] = p.split(':'); if (k && val.length) o[k.trim()] = val.join(':').trim(); }); tc[f.key] = Object.keys(o).length ? o : v; } else tc[f.key] = v; } });
+    return tc;
+  });
+
+  // Group by ID
+  const idCol = columnMapping['testCaseId'];
+  let cases;
+  if (idCol) {
+    const g = {}, order = [];
+    raw.forEach(tc => { const id = (tc.testCaseId||'').trim(); if (!id) { if (Object.values(tc).some(v=>v&&v.toString().trim())) order.push(tc); return; } if (!g[id]) { g[id] = {...tc, steps: Array.isArray(tc.steps)?[...tc.steps]:[]}; order.push(g[id]); } else { if (Array.isArray(tc.steps)) g[id].steps = g[id].steps.concat(tc.steps); FIELDS.forEach(f => { if (f.key!=='steps'&&f.key!=='testCaseId'&&tc[f.key]&&!g[id][f.key]) g[id][f.key]=tc[f.key]; }); } });
+    cases = order;
+  } else cases = raw;
+  cases.forEach(tc => { if (Array.isArray(tc.steps) && !tc.steps.length) delete tc.steps; });
+  const valid = cases.filter(tc => Object.values(tc).some(v => v && v.toString().trim()));
+  if (!valid.length) { alert('No valid test cases found.'); return; }
+
+  // Collapse upload, show results
+  document.getElementById('upload-panel').style.display = 'none';
   renderResults(analyzeAllTestCases(valid));
 }
 
-function clearFile() { uploadedData = null; uploadedHeaders = []; columnMapping = {}; document.getElementById('file-input').value = ''; ['file-info','column-mapping','file-preview','file-actions'].forEach(id => document.getElementById(id).style.display = 'none'); document.getElementById('results').style.display = 'none'; }
+// ==================== RENDER ====================
+let allResults = [];
+
+function renderResults(data) {
+  document.getElementById('results').style.display = 'block';
+  window._lastResults = data;
+  allResults = data.results;
+  const s = data.summary;
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric"><div class="val">${s.totalTestCases}</div><div class="lbl">Total</div></div>
+    <div class="metric"><div class="val" style="color:${scoreColor(s.overallScore)}">${s.overallScore}</div><div class="lbl">Avg Score</div></div>
+    <div class="metric"><div class="val">${s.grade}</div><div class="lbl">Grade</div></div>
+    <div class="metric"><div class="val" style="color:var(--success)">${s.passCount}</div><div class="lbl">Good</div></div>
+    <div class="metric"><div class="val" style="color:var(--warning)">${s.needsImprovementCount}</div><div class="lbl">Needs Work</div></div>
+    <div class="metric"><div class="val" style="color:var(--danger)">${s.poorCount}</div><div class="lbl">Poor</div></div>`;
+
+  document.getElementById('toolbar').innerHTML = `
+    <select id="filter-grade" onchange="applyFilters()"><option value="">All Grades</option><option value="fail">Poor (F/D)</option><option value="mid">Needs Work (C)</option><option value="good">Good (A/B)</option></select>
+    <select id="sort-by" onchange="applyFilters()"><option value="score-asc">Score ↑ (worst first)</option><option value="score-desc">Score ↓ (best first)</option><option value="id">By ID</option></select>
+    <button class="btn" onclick="resetView()">↺ New file</button>`;
+
+  applyFilters();
+}
+
+function applyFilters() {
+  const filter = document.getElementById('filter-grade').value;
+  const sort = document.getElementById('sort-by').value;
+
+  let filtered = [...allResults];
+  if (filter === 'fail') filtered = filtered.filter(r => r.overallRating < 5);
+  else if (filter === 'mid') filtered = filtered.filter(r => r.overallRating >= 5 && r.overallRating < 7);
+  else if (filter === 'good') filtered = filtered.filter(r => r.overallRating >= 7);
+
+  if (sort === 'score-asc') filtered.sort((a,b) => a.overallRating - b.overallRating);
+  else if (sort === 'score-desc') filtered.sort((a,b) => b.overallRating - a.overallRating);
+
+  document.getElementById('result-count').textContent = `Showing ${filtered.length} of ${allResults.length}`;
+  renderTable(filtered);
+}
+
+function renderTable(results) {
+  const tbody = document.getElementById('tc-body');
+  tbody.innerHTML = results.map(r => {
+    const issues = r.suggestions.length;
+    const pillClass = r.overallRating >= 7 ? 'pill-high' : r.overallRating >= 4 ? 'pill-mid' : 'pill-low';
+    return `
+      <tr onclick="toggleDetail('${r.testCaseId}')">
+        <td>${esc(r.testCaseId)}</td>
+        <td>${esc(r.title.substring(0,60))}${r.title.length>60?'...':''}</td>
+        <td><span class="score-pill ${pillClass}">${r.overallRating}</span></td>
+        <td><span class="badge badge-grade">${r.grade}</span></td>
+        <td>${issues ? `<span style="color:var(--danger)">${issues} issue${issues>1?'s':''}</span>` : '<span class="pass-badge">✓</span>'}</td>
+      </tr>
+      <tr class="detail-row" id="detail-${r.testCaseId}"><td colspan="5">${renderDetail(r)}</td></tr>`;
+  }).join('');
+}
+
+function renderDetail(r) {
+  const left = r.criteria.filter(c=>c.weight>0).map(c => `
+    <div class="detail-bar"><span style="width:130px">${c.name}</span><div class="bar-bg"><div class="bar-fill" style="width:${c.score*10}%;background:${scoreColor(c.score)}"></div></div><span class="score">${c.score}</span></div>`).join('');
+
+  const info = r.criteria.filter(c=>c.weight===0).map(c => `<div style="font-size:0.75rem;color:var(--muted);margin-top:0.2rem;">${c.name}: ${c.feedback[0]||''}</div>`).join('');
+
+  let right = '';
+  if (r.suggestions.length) {
+    right += `<h5 style="font-size:0.8rem;color:var(--warning);">Issues</h5><ul class="suggestion-list">${r.suggestions.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`;
+  } else {
+    right += '<span class="pass-badge">✓ Meets quality standards</span>';
+  }
+
+  if (r.improved && r.improved.rewrites) {
+    const rw = r.improved.rewrites;
+    right += '<div class="rewrite-box"><h6>✨ Suggested rewrites</h6>';
+    if (rw.title && rw.title.length) right += rw.title.map((o,i)=>`<div>${i+1}. ${esc(o.text)} <span class="reason">${esc(o.reason)}</span></div>`).join('');
+    if (rw.steps && rw.steps.length) { const s = rw.steps[0]; right += `<ol>${(Array.isArray(s.text)?s.text:[s.text]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`; }
+    if (rw.expectedResult && rw.expectedResult.length) right += rw.expectedResult.map((o,i)=>`<div>${i+1}. ${esc(o.text)} <span class="reason">${esc(o.reason)}</span></div>`).join('');
+    right += '</div>';
+  }
+
+  return `<div class="detail-content"><div class="detail-section"><h5>Scores</h5>${left}${info}</div><div class="detail-section">${right}</div></div>`;
+}
+
+function toggleDetail(id) {
+  const row = document.getElementById(`detail-${id}`);
+  const parent = row.previousElementSibling;
+  if (row.classList.contains('visible')) { row.classList.remove('visible'); parent.classList.remove('expanded'); }
+  else { row.classList.add('visible'); parent.classList.add('expanded'); }
+}
+
+function resetView() {
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('upload-panel').style.display = 'block';
+  document.getElementById('file-input').value = '';
+  uploadedData = null;
+}
+
+function scoreColor(s) { if (s >= 7) return 'var(--success)'; if (s >= 4) return 'var(--warning)'; return 'var(--danger)'; }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ==================== EXPORT ====================
+function exportToCSV() {
+  if (!window._lastResults) return;
+  const d = window._lastResults, today = new Date().toISOString().split('T')[0];
+  const rows = ['"ID","Title","Score","Grade","Issues","Date"'];
+  d.results.forEach(r => rows.push(`"${r.testCaseId}","${(r.title||'').replace(/"/g,'""')}",${r.overallRating},"${r.grade}","${r.suggestions.join('; ').replace(/"/g,'""')}","${today}"`));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'})); a.download = `tc_analysis_${today}.csv`; a.click();
+}
 
 function downloadTemplate() {
-  const headers = FIELD_DEFINITIONS.map(f => f.label);
-  const sample = ['TC-001','Verify login with valid credentials','Test that user can log in with correct username and password','Authentication','User account exists, Application is running','User is logged in, Session is active','1. Navigate to login page\n2. Enter valid username\n3. Enter valid password\n4. Click Login button','username: testuser@email.com, password: Test@123','User is redirected to dashboard with welcome message displayed','User redirected to dashboard successfully','Pass','High'];
-  const csv = [headers.map(h=>`"${h}"`).join(','), sample.map(v=>`"${v.replace(/"/g,'""')}"`).join(',')].join('\n');
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download = 'test_case_template.csv'; a.click();
+  const h = ['Test Case ID','Title','Description','Prerequisites','Test Data','Steps','Expected Result','Status'];
+  const s = ['TC-001','Verify login with valid credentials','Check user can log in','User exists','username: john@test.com','1. Open login\n2. Enter creds\n3. Click Login','Dashboard shows welcome message','Pass'];
+  const csv = [h.map(x=>`"${x}"`).join(','), s.map(x=>`"${x.replace(/"/g,'""')}"`).join(',')].join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download = 'template.csv'; a.click();
 }
-
-function formatFileSize(b) { if (b < 1024) return b+' B'; if (b < 1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
-
-// ==================== RENDER RESULTS ====================
-function renderResults(data) {
-  const el = document.getElementById('results'); el.style.display = 'block';
-  const s = data.summary;
-  document.getElementById('summary-grid').innerHTML = `
-    <div class="summary-item"><div class="value">${s.totalTestCases}</div><div class="label">Test Cases</div></div>
-    <div class="summary-item"><div class="value" style="color:${getScoreColor(s.overallScore)}">${s.overallScore}/10</div><div class="label">Overall Score</div></div>
-    <div class="summary-item"><div class="value">${s.grade}</div><div class="label">Grade</div></div>
-    <div class="summary-item"><div class="value" style="color:var(--success)">${s.passCount}</div><div class="label">Good (≥7)</div></div>
-    <div class="summary-item"><div class="value" style="color:var(--warning)">${s.needsImprovementCount}</div><div class="label">Needs Work (4-6)</div></div>
-    <div class="summary-item"><div class="value" style="color:var(--danger)">${s.poorCount}</div><div class="label">Poor (&lt;4)</div></div>`;
-  document.getElementById('result-cards').innerHTML = data.results.map(r => `
-    <div class="result-card"><div class="result-header"><div class="score-circle ${r.overallRating>=7?'score-high':r.overallRating>=4?'score-mid':'score-low'}">${r.overallRating}</div><div class="info"><h4>${r.testCaseId}: ${r.title}<span class="grade-badge ${getGradeClass(r.grade)}">${r.grade}</span></h4><div class="subtitle">Test Case #${r.testCaseIndex}</div></div></div>
-    <div class="criteria-list">${r.criteria.map(c=>`<div class="criteria-item"><span class="name">${c.name}</span><div class="bar-container"><div class="bar" style="width:${c.score*10}%;background:${getScoreColor(c.score)}"></div></div><span class="score-text" style="color:${getScoreColor(c.score)}">${c.score}/10</span></div>`).join('')}</div>
-    ${r.suggestions.length?`<div class="suggestions"><h5>💡 Suggestions</h5><ul>${r.suggestions.map(s=>`<li>${s}</li>`).join('')}</ul></div>`:''}</div>`).join('');
-  el.scrollIntoView({behavior:'smooth'});
-}
-
-function getScoreColor(score) { if (score >= 7) return 'var(--success)'; if (score >= 4) return 'var(--warning)'; return 'var(--danger)'; }
-function getGradeClass(grade) { if (grade.startsWith('A')) return 'grade-a'; if (grade==='B') return 'grade-b'; if (grade==='C') return 'grade-c'; if (grade==='D') return 'grade-d'; return 'grade-f'; }

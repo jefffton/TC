@@ -31,24 +31,27 @@
     .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.75rem; }
     .toolbar select, .toolbar input { padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem; }
     .toolbar select { min-width: 120px; }
-    .tc-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    .tc-table th { text-align: left; padding: 0.5rem 0.6rem; background: #f9fafb; border-bottom: 2px solid var(--border); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--muted); }
-    .tc-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #f1f3f5; vertical-align: top; }
-    .tc-table tr { cursor: pointer; transition: background 0.1s; }
-    .tc-table tr:hover { background: #f7f9fb; }
-    .tc-table tr.expanded { background: var(--primary-light); }
-    .score-pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px; font-weight: 700; font-size: 0.75rem; color: white; }
+    .columns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    .col { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .col-header { padding: 0.6rem 0.75rem; font-weight: 700; font-size: 0.85rem; text-align: center; }
+    .poor-header { background: #fef0f0; color: var(--danger); border-bottom: 2px solid var(--danger); }
+    .mid-header { background: #fef9e8; color: var(--warning); border-bottom: 2px solid var(--warning); }
+    .good-header { background: #f2fcf3; color: var(--success); border-bottom: 2px solid var(--success); }
+    .col-count { text-align: center; font-size: 1.5rem; font-weight: 700; padding: 0.5rem; color: var(--muted); }
+    .col-body { max-height: 500px; overflow-y: auto; padding: 0.5rem; }
+    .tc-card { padding: 0.5rem 0.6rem; border: 1px solid #f1f3f5; border-radius: 4px; margin-bottom: 0.4rem; cursor: pointer; transition: background 0.1s; font-size: 0.8rem; }
+    .tc-card:hover { background: #f7f9fb; }
+    .tc-card .tc-title { font-weight: 600; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tc-card .tc-meta { display: flex; justify-content: space-between; align-items: center; }
+    .tc-card .tc-id { color: var(--muted); font-size: 0.7rem; }
+    .score-pill { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 700; font-size: 0.7rem; color: white; }
     .pill-high { background: var(--success); }
     .pill-mid { background: var(--warning); }
     .pill-low { background: var(--danger); }
-    .badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; margin-left: 0.3rem; }
-    .badge-ai { background: #f3e8ff; color: #6b21a8; }
-    .badge-grade { background: #f1f5f9; color: var(--muted); }
-    .detail-row { display: none; }
-    .detail-row.visible { display: table-row; }
-    .detail-row td { padding: 0.75rem 1rem; background: #fafbfc; }
-    .detail-content { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .detail-section h5 { font-size: 0.8rem; color: var(--primary-dark); margin-bottom: 0.3rem; }
+    .detail-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+    .detail-modal.visible { display: flex; }
+    .detail-panel { background: white; border-radius: 8px; width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto; padding: 1.5rem; position: relative; }
+    .detail-panel .close-btn { position: absolute; top: 0.75rem; right: 1rem; font-size: 1.2rem; cursor: pointer; background: none; border: none; color: var(--muted); }
     .detail-bar { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; font-size: 0.8rem; }
     .detail-bar .bar-bg { flex: 1; max-width: 80px; height: 5px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
     .detail-bar .bar-fill { height: 100%; border-radius: 3px; }
@@ -62,7 +65,7 @@
     .rewrite-box .reason { color: var(--muted); font-style: italic; font-size: 0.7rem; }
     .pass-badge { color: var(--success); font-size: 0.8rem; }
     #results { display: none; }
-    @media (max-width: 768px) { .container { padding: 1rem; } .metrics { grid-template-columns: 1fr 1fr 1fr; } .detail-content { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .columns { grid-template-columns: 1fr; } .container { padding: 1rem; } .metrics { grid-template-columns: 1fr 1fr 1fr; } }
   </style>
 </head>
 <body>
@@ -87,17 +90,38 @@
         <div class="panel-body"><div id="metrics" class="metrics"></div></div>
       </div>
       <div class="panel">
-        <div class="panel-header"><span>Test Cases</span><span id="result-count" style="font-weight:normal;color:var(--muted)"></span></div>
+        <div class="panel-header"><span>Test Cases</span><span id="result-count" style="font-weight:normal;color:var(--muted)"></span><div class="btn-group"><button class="btn" onclick="resetView()">↺ New file</button></div></div>
         <div class="panel-body">
-          <div class="toolbar" id="toolbar"></div>
-          <table class="tc-table"><thead><tr><th>ID</th><th>Title</th><th>Score</th><th>Grade</th><th>Issues</th></tr></thead><tbody id="tc-body"></tbody></table>
+          <div class="columns" id="columns">
+            <div class="col col-poor">
+              <div class="col-header poor-header">❌ Poor Quality</div>
+              <div class="col-count" id="poor-count">0</div>
+              <div class="col-body" id="col-poor"></div>
+            </div>
+            <div class="col col-mid">
+              <div class="col-header mid-header">⚠️ Needs Improvement</div>
+              <div class="col-count" id="mid-count">0</div>
+              <div class="col-body" id="col-mid"></div>
+            </div>
+            <div class="col col-good">
+              <div class="col-header good-header">✅ Meets Standard</div>
+              <div class="col-count" id="good-count">0</div>
+              <div class="col-body" id="col-good"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+  <div class="detail-modal" id="detail-modal" onclick="if(event.target===this)closeDetail()">
+    <div class="detail-panel" id="detail-content">
+      <button class="close-btn" onclick="closeDetail()">✕</button>
+    </div>
+  </div>
+
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-  <script src="analyzer.js"></script>
-  <script src="ui.js"></script>
+  <script src="analyzer.js?v=5"></script>
+  <script src="ui.js?v=5"></script>
 </body>
 </html>

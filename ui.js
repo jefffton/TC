@@ -93,77 +93,95 @@ function renderResults(data) {
     <div class="metric"><div class="val" style="color:var(--warning)">${s.needsImprovementCount}</div><div class="lbl">Needs Work</div></div>
     <div class="metric"><div class="val" style="color:var(--danger)">${s.poorCount}</div><div class="lbl">Poor</div></div>`;
 
-  document.getElementById('toolbar').innerHTML = `
-    <select id="filter-grade" onchange="applyFilters()"><option value="">All Grades</option><option value="fail">Poor (F/D)</option><option value="mid">Needs Work (C)</option><option value="good">Good (A/B)</option></select>
-    <select id="sort-by" onchange="applyFilters()"><option value="score-asc">Score ↑ (worst first)</option><option value="score-desc">Score ↓ (best first)</option><option value="id">By ID</option></select>
-    <button class="btn" onclick="resetView()">↺ New file</button>`;
-
   applyFilters();
 }
 
 function applyFilters() {
-  const filter = document.getElementById('filter-grade').value;
-  const sort = document.getElementById('sort-by').value;
+  const good = allResults.filter(r => r.overallRating >= 8);
+  const needsWork = allResults.filter(r => r.overallRating >= 5 && r.overallRating < 8);
+  const poor = allResults.filter(r => r.overallRating < 5);
 
-  let filtered = [...allResults];
-  if (filter === 'fail') filtered = filtered.filter(r => r.overallRating < 5);
-  else if (filter === 'mid') filtered = filtered.filter(r => r.overallRating >= 5 && r.overallRating < 7);
-  else if (filter === 'good') filtered = filtered.filter(r => r.overallRating >= 7);
+  document.getElementById('result-count').textContent = `${allResults.length} test cases`;
+  document.getElementById('poor-count').textContent = poor.length;
+  document.getElementById('mid-count').textContent = needsWork.length;
+  document.getElementById('good-count').textContent = good.length;
 
-  if (sort === 'score-asc') filtered.sort((a,b) => a.overallRating - b.overallRating);
-  else if (sort === 'score-desc') filtered.sort((a,b) => b.overallRating - a.overallRating);
-
-  document.getElementById('result-count').textContent = `Showing ${filtered.length} of ${allResults.length}`;
-  renderTable(filtered);
+  document.getElementById('col-poor').innerHTML = renderCards(poor);
+  document.getElementById('col-mid').innerHTML = renderCards(needsWork);
+  document.getElementById('col-good').innerHTML = renderCards(good);
 }
 
-function renderTable(results) {
-  const tbody = document.getElementById('tc-body');
-  tbody.innerHTML = results.map(r => {
-    const issues = r.suggestions.length;
+function renderCards(results) {
+  if (!results.length) return '<div style="text-align:center;color:var(--muted);padding:1rem;font-size:0.8rem;">None</div>';
+  return results.map(r => {
     const pillClass = r.overallRating >= 7 ? 'pill-high' : r.overallRating >= 4 ? 'pill-mid' : 'pill-low';
-    return `
-      <tr onclick="toggleDetail('${r.testCaseId}')">
-        <td>${esc(r.testCaseId)}</td>
-        <td>${esc(r.title.substring(0,60))}${r.title.length>60?'...':''}</td>
-        <td><span class="score-pill ${pillClass}">${r.overallRating}</span></td>
-        <td><span class="badge badge-grade">${r.grade}</span></td>
-        <td>${issues ? `<span style="color:var(--danger)">${issues} issue${issues>1?'s':''}</span>` : '<span class="pass-badge">✓</span>'}</td>
-      </tr>
-      <tr class="detail-row" id="detail-${r.testCaseId}"><td colspan="5">${renderDetail(r)}</td></tr>`;
+    return `<div class="tc-card" onclick="showDetail('${r.testCaseId}')">
+      <div class="tc-title" title="${esc(r.title)}">${esc(r.title)}</div>
+      <div class="tc-meta"><span class="tc-id">${esc(r.testCaseId)}</span><span class="score-pill ${pillClass}">${r.overallRating}</span></div>
+    </div>`;
   }).join('');
 }
 
-function renderDetail(r) {
-  const left = r.criteria.filter(c=>c.weight>0).map(c => `
-    <div class="detail-bar"><span style="width:130px">${c.name}</span><div class="bar-bg"><div class="bar-fill" style="width:${c.score*10}%;background:${scoreColor(c.score)}"></div></div><span class="score">${c.score}</span></div>`).join('');
+function showDetail(id) {
+  const r = allResults.find(x => x.testCaseId === id);
+  if (!r) return;
 
-  const info = r.criteria.filter(c=>c.weight===0).map(c => `<div style="font-size:0.75rem;color:var(--muted);margin-top:0.2rem;">${c.name}: ${c.feedback[0]||''}</div>`).join('');
+  const scores = r.criteria.filter(c => c.weight > 0).map(c => `
+    <div class="detail-bar"><span style="width:140px">${c.name}</span><div class="bar-bg"><div class="bar-fill" style="width:${c.score*10}%;background:${scoreColor(c.score)}"></div></div><span class="score">${c.score}</span></div>`).join('');
 
-  let right = '';
-  if (r.suggestions.length) {
-    right += `<h5 style="font-size:0.8rem;color:var(--warning);">Issues</h5><ul class="suggestion-list">${r.suggestions.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`;
+  const info = r.criteria.filter(c => c.weight === 0).map(c => `<div style="font-size:0.75rem;color:var(--muted);">${c.name}: ${c.feedback[0]||''}</div>`).join('');
+
+  let suggestions = '';
+  if (r.suggestions.length && r.overallRating < 8) {
+    suggestions = `<h5 style="font-size:0.85rem;color:var(--warning);margin-top:1rem;">Issues</h5><ul class="suggestion-list">${r.suggestions.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`;
   } else {
-    right += '<span class="pass-badge">✓ Meets quality standards</span>';
+    suggestions = '<div class="pass-badge" style="margin-top:0.75rem;">✓ Meets quality standards</div>';
   }
 
+  let rewrites = '';
   if (r.improved && r.improved.rewrites) {
     const rw = r.improved.rewrites;
-    right += '<div class="rewrite-box"><h6>✨ Suggested rewrites</h6>';
-    if (rw.title && rw.title.length) right += rw.title.map((o,i)=>`<div>${i+1}. ${esc(o.text)} <span class="reason">${esc(o.reason)}</span></div>`).join('');
-    if (rw.steps && rw.steps.length) { const s = rw.steps[0]; right += `<ol>${(Array.isArray(s.text)?s.text:[s.text]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`; }
-    if (rw.expectedResult && rw.expectedResult.length) right += rw.expectedResult.map((o,i)=>`<div>${i+1}. ${esc(o.text)} <span class="reason">${esc(o.reason)}</span></div>`).join('');
-    right += '</div>';
+    rewrites = '<div class="rewrite-box"><h6>✨ Suggested rewrites</h6>';
+    if (rw.title && rw.title.length) rewrites += '<strong>Title:</strong>' + rw.title.map((o,i) => `<div>${i+1}. ${esc(o.text)} <span class="reason">${esc(o.reason)}</span></div>`).join('');
+    if (rw.steps && rw.steps.length) { const s = rw.steps[0]; rewrites += '<strong>Steps:</strong><ol>' + (Array.isArray(s.text)?s.text:[s.text]).map(x=>`<li>${esc(x)}</li>`).join('') + '</ol>'; }
+    if (rw.expectedResult && rw.expectedResult.length) rewrites += '<strong>Expected:</strong>' + rw.expectedResult.map((o,i) => `<div>${i+1}. ${esc(o.text)} <span class="reason">${esc(o.reason)}</span></div>`).join('');
+    rewrites += '</div>';
   }
 
-  return `<div class="detail-content"><div class="detail-section"><h5>Scores</h5>${left}${info}</div><div class="detail-section">${right}</div></div>`;
+  document.getElementById('detail-content').innerHTML = `
+    <button class="close-btn" onclick="closeDetail()">✕</button>
+    <h3 style="margin-bottom:0.25rem;font-size:1rem;">${esc(r.testCaseId)}: ${esc(r.title)}</h3>
+    <div style="color:var(--muted);font-size:0.8rem;margin-bottom:1rem;">Score: <strong>${r.overallRating}/10</strong> (${r.grade})</div>
+    ${renderOriginalTC(r)}
+    <hr style="border:none;border-top:1px solid var(--border);margin:1rem 0;">
+    <h4 style="font-size:0.85rem;margin-bottom:0.5rem;">Quality Scores</h4>
+    ${scores}${info}${suggestions}${rewrites}`;
+
+  document.getElementById('detail-modal').classList.add('visible');
 }
 
-function toggleDetail(id) {
-  const row = document.getElementById(`detail-${id}`);
-  const parent = row.previousElementSibling;
-  if (row.classList.contains('visible')) { row.classList.remove('visible'); parent.classList.remove('expanded'); }
-  else { row.classList.add('visible'); parent.classList.add('expanded'); }
+function closeDetail() {
+  document.getElementById('detail-modal').classList.remove('visible');
+}
+
+function renderOriginalTC(r) {
+  let html = '<div style="background:#f9fafb;border:1px solid var(--border);border-radius:6px;padding:0.75rem;font-size:0.8rem;">';
+
+  if (r.originalPreConditions) {
+    html += `<div style="margin-bottom:0.5rem;"><strong style="color:var(--muted);">Prerequisites:</strong> ${esc(typeof r.originalPreConditions === 'string' ? r.originalPreConditions : JSON.stringify(r.originalPreConditions))}</div>`;
+  }
+
+  if (r.originalSteps && r.originalSteps.length) {
+    const steps = Array.isArray(r.originalSteps) ? r.originalSteps : [r.originalSteps];
+    html += `<div style="margin-bottom:0.5rem;"><strong style="color:var(--muted);">Steps:</strong><ol style="padding-left:1.25rem;margin-top:0.25rem;">${steps.map(s => `<li>${esc(typeof s === 'string' ? s : (s.action || s.description || ''))}</li>`).join('')}</ol></div>`;
+  }
+
+  if (r.originalExpected) {
+    html += `<div><strong style="color:var(--muted);">Expected Result:</strong> ${esc(r.originalExpected)}</div>`;
+  }
+
+  html += '</div>';
+  return html;
 }
 
 function resetView() {
